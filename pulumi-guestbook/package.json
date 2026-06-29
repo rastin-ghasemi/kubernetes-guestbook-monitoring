@@ -3,6 +3,7 @@
     "main": "index.ts",
     "devDependencies": {
         "@types/node": "^18",
+        "source-map-support": "^0.5.21",
         "typescript": "^5.0.0"
     },
     "dependencies": {

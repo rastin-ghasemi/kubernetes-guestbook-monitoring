@@ -23,7 +23,7 @@ minikube addons enable metrics-server
 
 # wait for ingress controller to be ready on the control plane
 kubectl wait --for=condition=ready pod \
-  -l app.kubernetes.io/name=ingress-nginx \
+  -l app.kubernetes.io/component=controller \
   -n ingress-nginx \
   --timeout=120s
 
@@ -50,10 +50,12 @@ minikube ssh -n minikube-m03 -- docker pull bitnami/apache-exporter:latest
 
 # 7. deploy everything with Pulumi
 cd pulumi-guestbook
+rm -rf node_modules package-lock.json
 npm install
 pulumi login
-pulumi stack init dev
+pulumi stack init dev || pulumi stack select dev
 pulumi config set grafanaPassword admin123
+pulumi refresh --yes   # sync state with actual cluster
 pulumi up --yes
 
 # 8. add local DNS (use minikube-m04 IP — NOT minikube ip)
@@ -219,8 +221,18 @@ Apache (PHP pod)
 - `minikube` v1.38+
 - `kubectl`
 - `helm` (Approach A only)
-- Node.js 20+ and `npm` (Approach B only)
+- Node.js **v20.19.0+** or **v22.12.0+** and `npm` (Approach B only)
 - Pulumi CLI (Approach B only): `curl -fsSL https://get.pulumi.com | sh`
+
+> **Node.js version note.** Pulumi requires Node v20.19.0+ or v22.12.0+. If you get a `SourceMapConsumer is not a constructor` error, you are on an incompatible Node version. Use nvm to switch:
+> ```bash
+> nvm install 20
+> nvm use 20
+> node --version   # must show v20.19.0 or higher
+> # then do a clean reinstall
+> rm -rf node_modules package-lock.json
+> npm install
+> ```
 
 ---
 
@@ -239,7 +251,7 @@ kubectl get nodes   # wait until all 4 are Ready
 minikube addons enable ingress
 minikube addons enable metrics-server
 kubectl wait --for=condition=ready pod \
-  -l app.kubernetes.io/name=ingress-nginx \
+  -l app.kubernetes.io/component=controller \
   -n ingress-nginx --timeout=120s
 
 # label and taint nodes
@@ -391,10 +403,20 @@ pulumi version
 
 ```bash
 cd pulumi-guestbook/
+
+# clean install to avoid stale node_modules from a different Node version
+rm -rf node_modules package-lock.json
 npm install
+
 pulumi login
-pulumi stack init dev
+
+# create a new stack (or select if it already exists)
+pulumi stack init dev || pulumi stack select dev
+
 pulumi config set grafanaPassword admin123
+
+# refresh syncs Pulumi state with the actual cluster (important after minikube delete)
+pulumi refresh --yes
 pulumi up --yes
 ```
 
@@ -437,6 +459,8 @@ Open Grafana at `http://grafana.local` — the **Guestbook Full Stack Overview**
 pulumi destroy --yes   # removes all Pulumi-managed K8s resources
 minikube delete        # deletes the cluster
 ```
+
+> After destroying and recreating the cluster, always run `pulumi refresh --yes` before `pulumi up` to sync Pulumi's state with the new cluster.
 
 ---
 
