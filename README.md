@@ -10,7 +10,7 @@ A production-grade Kubernetes deployment of the Guestbook application, extended 
 
 ```bash
 # 1. clone and enter the project
-git clone <repo-url> && cd guestbook-monitoring
+git clone <repo-url> && cd kubernetes-guestbook-monitoring
 
 # 2. start the cluster and configure nodes
 minikube start --nodes=4 --driver=docker --cpus=4 --memory=6144
