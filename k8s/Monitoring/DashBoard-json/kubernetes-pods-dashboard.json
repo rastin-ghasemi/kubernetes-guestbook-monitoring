@@ -1,0 +1,99 @@
+{
+  "title": "Kubernetes \u2014 Pod Resources",
+  "uid": "k8s-pods",
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Pod CPU \u2014 guestbook-frontend",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{namespace=\"guestbook-frontend\", container!=\"\", container!=\"POD\"}[5m])",
+          "legendFormat": "{{pod}} / {{container}}"
+        }
+      ]
+    },
+    {
+      "title": "Pod CPU \u2014 guestbook-backend",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{namespace=\"guestbook-backend\", container!=\"\", container!=\"POD\"}[5m])",
+          "legendFormat": "{{pod}} / {{container}}"
+        }
+      ]
+    },
+    {
+      "title": "Pod Memory \u2014 guestbook-frontend",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "container_memory_working_set_bytes{namespace=\"guestbook-frontend\", container!=\"\", container!=\"POD\"}",
+          "legendFormat": "{{pod}} / {{container}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
+    },
+    {
+      "title": "Pod Memory \u2014 guestbook-backend",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "container_memory_working_set_bytes{namespace=\"guestbook-backend\", container!=\"\", container!=\"POD\"}",
+          "legendFormat": "{{pod}} / {{container}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
+    },
+    {
+      "title": "Pod Restarts",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "kube_pod_container_status_restarts_total{namespace=~\"guestbook-frontend|guestbook-backend\"}",
+          "legendFormat": "{{namespace}} / {{pod}}"
+        }
+      ]
+    }
+  ]
+}

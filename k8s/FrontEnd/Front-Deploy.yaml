@@ -1,0 +1,108 @@
+# SOURCE: https://cloud.google.com/kubernetes-engine/docs/tutorials/guestbook
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: guestbook-frontend
+  labels:
+    app: guestbook
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: guestbook
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: guestbook
+        tier: frontend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9117"
+        prometheus.io/path: "/metrics"
+    spec:
+      nodeSelector:
+        tier: frontend
+      tolerations:
+      - key: "tier"
+        operator: "Equal"
+        value: "frontend"
+        effect: "NoSchedule"
+      containers:
+      # Main PHP app container
+      - name: php-redis
+        image: us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
+        env:
+        - name: GET_HOSTS_FROM
+          value: "env"
+        - name: REDIS_LEADER_SERVICE_HOST
+          value: "redis-leader.guestbook-backend.svc.cluster.local"
+        - name: REDIS_FOLLOWER_SERVICE_HOST
+          value: "redis-follower.guestbook-backend.svc.cluster.local"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
+        ports:
+        - name: http
+          containerPort: 80
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        # Enable Apache mod_status for the exporter to read
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - |
+                echo "ExtendedStatus On" >> /etc/apache2/apache2.conf
+                echo "<Location /server-status>" >> /etc/apache2/apache2.conf
+                echo "  SetHandler server-status" >> /etc/apache2/apache2.conf
+                echo "  Require local" >> /etc/apache2/apache2.conf
+                echo "</Location>" >> /etc/apache2/apache2.conf
+                apache2ctl graceful
+
+      # Apache exporter sidecar — converts mod_status to Prometheus metrics
+      - name: apache-exporter
+        image: bitnami/apache-exporter:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - --scrape_uri=http://localhost/server-status?auto
+        ports:
+        - name: metrics
+          containerPort: 9117
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9117
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9117
+          initialDelaySeconds: 10
+          periodSeconds: 10

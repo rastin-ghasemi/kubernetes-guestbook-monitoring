@@ -1,0 +1,52 @@
+# SOURCE: https://cloud.google.com/kubernetes-engine/docs/tutorials/guestbook
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-follower
+  namespace: guestbook-backend
+  labels:
+    app: redis
+    role: follower
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: redis
+      role: follower
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: follower
+        tier: backend
+    spec:
+      nodeSelector:
+        tier: backend
+      tolerations:
+      - key: "tier"
+        operator: "Equal"
+        value: "backend"
+        effect: "NoSchedule"
+      containers:
+      - name: follower
+        image: us-docker.pkg.dev/google-samples/containers/gke/gb-redis-follower:v2
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 200m
+            memory: 200Mi
+        ports:
+        - containerPort: 6379
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          periodSeconds: 10

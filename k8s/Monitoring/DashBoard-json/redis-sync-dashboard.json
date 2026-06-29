@@ -1,0 +1,201 @@
+{
+  "title": "Redis Master-Replica Sync",
+  "uid": "redis-sync",
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Redis Leader — Connected Slaves",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{
+        "expr": "count(kube_pod_status_phase{namespace=\"guestbook-backend\", phase=\"Running\", pod=~\"redis-follower-.*\"})",
+        "legendFormat": "Connected replicas"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 1},
+              {"color": "green", "value": 2}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Redis Leader Pod Status",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [{
+        "expr": "kube_pod_status_phase{namespace=\"guestbook-backend\", pod=~\"redis-leader-.*\", phase=\"Running\"}",
+        "legendFormat": "Leader status"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [
+            {"type": "value", "options": {"1": {"text": "UP", "color": "green"}}},
+            {"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}}}
+          ],
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Redis Follower Pods Status",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [{
+        "expr": "count(kube_pod_status_phase{namespace=\"guestbook-backend\", pod=~\"redis-follower-.*\", phase=\"Running\"})",
+        "legendFormat": "Followers running"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 1},
+              {"color": "green", "value": 2}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Redis Pod Restarts",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [{
+        "expr": "sum(kube_pod_container_status_restarts_total{namespace=\"guestbook-backend\"})",
+        "legendFormat": "Total restarts"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 5}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Redis Leader Network TX (replication traffic)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [{
+        "expr": "rate(container_network_transmit_bytes_total{namespace=\"guestbook-backend\", pod=~\"redis-leader-.*\"}[5m])",
+        "legendFormat": "Leader TX - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Redis Follower Network RX (receiving replication)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [{
+        "expr": "rate(container_network_receive_bytes_total{namespace=\"guestbook-backend\", pod=~\"redis-follower-.*\"}[5m])",
+        "legendFormat": "Follower RX - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Redis Leader CPU Usage",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [{
+        "expr": "rate(container_cpu_usage_seconds_total{namespace=\"guestbook-backend\", pod=~\"redis-leader-.*\", container=\"leader\"}[5m])",
+        "legendFormat": "Leader CPU - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Redis Follower CPU Usage",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [{
+        "expr": "rate(container_cpu_usage_seconds_total{namespace=\"guestbook-backend\", pod=~\"redis-follower-.*\", container=\"follower\"}[5m])",
+        "legendFormat": "Follower CPU - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Redis Leader Memory Usage",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [{
+        "expr": "container_memory_working_set_bytes{namespace=\"guestbook-backend\", pod=~\"redis-leader-.*\", container=\"leader\"}",
+        "legendFormat": "Leader memory - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Redis Follower Memory Usage",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+      "targets": [{
+        "expr": "container_memory_working_set_bytes{namespace=\"guestbook-backend\", pod=~\"redis-follower-.*\", container=\"follower\"}",
+        "legendFormat": "Follower memory - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Redis Pod Restart History",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28},
+      "targets": [{
+        "expr": "kube_pod_container_status_restarts_total{namespace=\"guestbook-backend\"}",
+        "legendFormat": "{{pod}} - {{container}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    }
+  ]
+}

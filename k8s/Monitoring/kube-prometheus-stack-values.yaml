@@ -1,0 +1,87 @@
+fullnameOverride: "prometheus"
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 7d
+    resources:
+      requests:
+        cpu: 200m
+        memory: 400Mi
+      limits:
+        cpu: 500m
+        memory: 800Mi
+    nodeSelector:
+      tier: frontend
+    tolerations:
+    - key: "tier"
+      operator: "Equal"
+      value: "frontend"
+      effect: "NoSchedule"
+
+grafana:
+  enabled: true
+  adminPassword: "admin123"
+  service:
+    type: NodePort
+    nodePort: 30080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 100Mi
+    limits:
+      cpu: 200m
+      memory: 200Mi
+  nodeSelector:
+    tier: frontend
+  tolerations:
+  - key: "tier"
+    operator: "Equal"
+    value: "frontend"
+    effect: "NoSchedule"
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+      label: grafana_dashboard
+      labelValue: "1"
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 50Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+    nodeSelector:
+      tier: frontend
+    tolerations:
+    - key: "tier"
+      operator: "Equal"
+      value: "frontend"
+      effect: "NoSchedule"
+
+nodeExporter:
+  enabled: true
+  tolerations:
+  - key: "tier"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+kube-state-metrics:
+  tolerations:
+  - key: "tier"
+    operator: "Exists"
+    effect: "NoSchedule"
+  nodeSelector:
+    tier: frontend
+
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false

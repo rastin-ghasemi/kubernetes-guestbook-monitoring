@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-leader
+  namespace: guestbook-backend    # ← add namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: leader
+        tier: backend
+    spec:
+      # ← tell scheduler which node to use
+      nodeSelector:
+        tier: backend
+      # ← allow pod to run on tainted node
+      tolerations:
+      - key: "tier"
+        operator: "Equal"
+        value: "backend"
+        effect: "NoSchedule"
+      containers:
+      - name: leader
+        image: "registry.k8s.io/redis@sha256:cb111d1bd870a6a471385a4a69ad17469d326e9dd91e0e455350cacf36e1b3ee"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:               # ← add limits too
+            cpu: 200m
+            memory: 200Mi
+        ports:
+        - containerPort: 6379

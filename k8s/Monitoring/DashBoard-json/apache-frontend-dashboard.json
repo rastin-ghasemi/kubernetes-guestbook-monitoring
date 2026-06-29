@@ -1,0 +1,195 @@
+{
+  "title": "Guestbook Frontend \u2014 Apache Metrics",
+  "uid": "apache-frontend",
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "rate(apache_accesses_total[5m])",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "title": "Busy Workers",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(apache_workers{state=\"busy\"})",
+          "legendFormat": "Busy"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Idle Workers",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(apache_workers{state=\"idle\"})",
+          "legendFormat": "Idle"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 5
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Apache CPU Load",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "apache_cpuload",
+          "legendFormat": "CPU Load - {{pod}}"
+        }
+      ]
+    },
+    {
+      "title": "Pod Memory Usage",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "container_memory_working_set_bytes{namespace=\"guestbook-frontend\", container=\"php-redis\"}",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
+    },
+    {
+      "title": "Pod CPU Usage",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{namespace=\"guestbook-frontend\", container=\"php-redis\"}[5m])",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "title": "Frontend Replicas Available",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "kube_deployment_status_replicas_available{namespace=\"guestbook-frontend\"}",
+          "legendFormat": "Available"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

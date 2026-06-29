@@ -1,0 +1,174 @@
+{
+  "title": "Guestbook \u2014 Full Stack Overview",
+  "uid": "guestbook-overview",
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Frontend Pods Running",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "count(kube_pod_status_phase{namespace=\"guestbook-frontend\", phase=\"Running\"})",
+          "legendFormat": "Frontend pods"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Redis Leader Running",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "count(kube_pod_status_phase{namespace=\"guestbook-backend\", phase=\"Running\", pod=~\"redis-leader-.*\"})",
+          "legendFormat": "Leader pods"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Redis Followers Running",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "count(kube_pod_status_phase{namespace=\"guestbook-backend\", phase=\"Running\", pod=~\"redis-follower-.*\"})",
+          "legendFormat": "Follower pods"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Apache Request Rate",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(apache_accesses_total[5m]))",
+          "legendFormat": "Total req/s"
+        }
+      ]
+    },
+    {
+      "title": "Apache Workers",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "targets": [
+        {
+          "expr": "sum(apache_workers{state=\"busy\"})",
+          "legendFormat": "Busy"
+        },
+        {
+          "expr": "sum(apache_workers{state=\"idle\"})",
+          "legendFormat": "Idle"
+        }
+      ]
+    },
+    {
+      "title": "Pod Restarts",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "targets": [
+        {
+          "expr": "kube_pod_container_status_restarts_total{namespace=~\"guestbook-frontend|guestbook-backend\"}",
+          "legendFormat": "{{namespace}} / {{pod}}"
+        }
+      ]
+    }
+  ]
+}

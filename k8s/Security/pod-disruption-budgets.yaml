@@ -1,0 +1,35 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-leader-pdb
+  namespace: guestbook-backend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis
+      role: leader
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-follower-pdb
+  namespace: guestbook-backend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis
+      role: follower
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: guestbook-frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: guestbook
+      tier: frontend

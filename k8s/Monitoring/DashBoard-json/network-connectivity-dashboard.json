@@ -1,0 +1,214 @@
+{
+  "title": "Guestbook Network Connectivity",
+  "uid": "network-connectivity",
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Frontend → Redis Leader Connection Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [{
+        "expr": "rate(container_network_transmit_bytes_total{namespace=\"guestbook-frontend\", pod=~\"frontend-.*\"}[5m])",
+        "legendFormat": "TX - {{pod}}"
+      },{
+        "expr": "rate(container_network_receive_bytes_total{namespace=\"guestbook-frontend\", pod=~\"frontend-.*\"}[5m])",
+        "legendFormat": "RX - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Backend Network Traffic (Redis)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [{
+        "expr": "rate(container_network_transmit_bytes_total{namespace=\"guestbook-backend\"}[5m])",
+        "legendFormat": "TX - {{pod}}"
+      },{
+        "expr": "rate(container_network_receive_bytes_total{namespace=\"guestbook-backend\"}[5m])",
+        "legendFormat": "RX - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Frontend Pods Up",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8},
+      "targets": [{
+        "expr": "count(kube_pod_status_phase{namespace=\"guestbook-frontend\", phase=\"Running\"})",
+        "legendFormat": "Frontend pods"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 1},
+              {"color": "green", "value": 2}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Backend Pods Up",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8},
+      "targets": [{
+        "expr": "count(kube_pod_status_phase{namespace=\"guestbook-backend\", phase=\"Running\"})",
+        "legendFormat": "Backend pods"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "yellow", "value": 2},
+              {"color": "green", "value": 3}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Frontend Network Errors",
+      "type": "timeseries",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8},
+      "targets": [{
+        "expr": "rate(container_network_transmit_errors_total{namespace=\"guestbook-frontend\"}[5m])",
+        "legendFormat": "TX errors - {{pod}}"
+      },{
+        "expr": "rate(container_network_receive_errors_total{namespace=\"guestbook-frontend\"}[5m])",
+        "legendFormat": "RX errors - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Backend Network Errors",
+      "type": "timeseries",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8},
+      "targets": [{
+        "expr": "rate(container_network_transmit_errors_total{namespace=\"guestbook-backend\"}[5m])",
+        "legendFormat": "TX errors - {{pod}}"
+      },{
+        "expr": "rate(container_network_receive_errors_total{namespace=\"guestbook-backend\"}[5m])",
+        "legendFormat": "RX errors - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Frontend → Backend Packet Drop Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "targets": [{
+        "expr": "rate(container_network_transmit_packets_dropped_total{namespace=\"guestbook-frontend\"}[5m])",
+        "legendFormat": "TX dropped - {{pod}}"
+      },{
+        "expr": "rate(container_network_receive_packets_dropped_total{namespace=\"guestbook-frontend\"}[5m])",
+        "legendFormat": "RX dropped - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Apache Active Connections",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "targets": [{
+        "expr": "apache_workers{namespace=\"guestbook-frontend\", state=\"busy\"}",
+        "legendFormat": "Busy - {{pod}}"
+      },{
+        "expr": "apache_workers{namespace=\"guestbook-frontend\", state=\"idle\"}",
+        "legendFormat": "Idle - {{pod}}"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Service Endpoint Health — Frontend",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 20},
+      "targets": [{
+        "expr": "kube_endpoint_address_available{namespace=\"guestbook-frontend\"}",
+        "legendFormat": "Available endpoints"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Service Endpoint Health — Backend",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 20},
+      "targets": [{
+        "expr": "kube_endpoint_address_available{namespace=\"guestbook-backend\"}",
+        "legendFormat": "Available endpoints"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "DNS Lookup Duration",
+      "type": "timeseries",
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 20},
+      "targets": [{
+        "expr": "rate(coredns_dns_request_duration_seconds_sum[5m]) / rate(coredns_dns_request_duration_seconds_count[5m])",
+        "legendFormat": "Avg DNS latency"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    }
+  ]
+}
