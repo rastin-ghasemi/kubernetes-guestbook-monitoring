@@ -9,30 +9,54 @@ A production-grade Kubernetes deployment of the Guestbook application, extended 
 ## Quick Start (Pulumi — recommended)
 
 ```bash
-# 1. clone and enter the project
-git clone <repo-url> && cd kubernetes-guestbook-monitoring
+# 1. clone
+git clone https://github.com/rastin-ghasemi/kubernetes-guestbook-monitoring.git
+cd kubernetes-guestbook-monitoring
 
-# 2. start the cluster and configure nodes
+# 2. start the cluster
 minikube start --nodes=4 --driver=docker --cpus=4 --memory=6144
-minikube addons enable ingress metrics-server
+kubectl get nodes   # wait until all 4 are Ready
+
+# 3. enable addons BEFORE tainting nodes
+minikube addons enable ingress
+minikube addons enable metrics-server
+
+# wait for ingress controller to be ready on the control plane
+kubectl wait --for=condition=ready pod \
+  -l app.kubernetes.io/name=ingress-nginx \
+  -n ingress-nginx \
+  --timeout=120s
+
+# 4. label and taint nodes
 kubectl label node minikube-m02 tier=backend && kubectl taint node minikube-m02 tier=backend:NoSchedule
 kubectl label node minikube-m03 tier=frontend && kubectl taint node minikube-m03 tier=frontend:NoSchedule
 kubectl label node minikube-m04 tier=ingress  && kubectl taint node minikube-m04 tier=ingress:NoSchedule
 
-# 3. patch ingress to dedicated node
+# 5. move ingress controller to dedicated ingress node
 kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type=json \
   -p='[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{"kubernetes.io/os":"linux","tier":"ingress"}}]'
 kubectl patch deployment ingress-nginx-controller -n ingress-nginx \
   --patch '{"spec":{"template":{"spec":{"tolerations":[{"key":"tier","operator":"Equal","value":"ingress","effect":"NoSchedule"}]}}}}'
 
-# 4. deploy everything with Pulumi
+# wait for ingress to move to minikube-m04
+kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx
+kubectl get pods -n ingress-nginx -o wide   # Expected: Running on minikube-m04
+
+# 6. pre-pull images on the correct nodes
+minikube ssh -n minikube-m02 -- docker pull registry.k8s.io/redis@sha256:cb111d1bd870a6a471385a4a69ad17469d326e9dd91e0e455350cacf36e1b3ee
+minikube ssh -n minikube-m02 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-redis-follower:v2
+minikube ssh -n minikube-m03 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
+minikube ssh -n minikube-m03 -- docker pull bitnami/apache-exporter:latest
+
+# 7. deploy everything with Pulumi
 cd pulumi-guestbook
 npm install
+pulumi login
 pulumi stack init dev
 pulumi config set grafanaPassword admin123
 pulumi up --yes
 
-# 5. add local DNS
+# 8. add local DNS (use minikube-m04 IP — NOT minikube ip)
 echo "192.168.49.5 guestbook.local grafana.local" | sudo tee -a /etc/hosts
 ```
 
@@ -77,8 +101,8 @@ minikube-m04    → ingress-nginx       (Nginx ingress controller)
 | Guestbook | Redis leader + follower deployments + services, PHP frontend + service |
 | Monitoring | kube-prometheus-stack Helm release (Prometheus + Grafana + Alertmanager) |
 | Scraping | ServiceMonitor for frontend (port 9117) + ServiceMonitor for Redis |
-| Ingress | guestbook-ingress, grafana-ingress |
-| Dashboards | 3 Grafana dashboard ConfigMaps (auto-loaded by sidecar) |
+| Ingress | guestbook-ingress → guestbook.local, grafana-ingress → grafana.local |
+| Dashboards | 3 Grafana dashboard ConfigMaps (auto-loaded by Grafana sidecar) |
 | Security | 3 LimitRanges, 3 ResourceQuotas, 3 PodDisruptionBudgets, 9 NetworkPolicies, 2 Secrets |
 
 ---
@@ -118,7 +142,7 @@ apache_cpuload 0.0012
 | Guestbook Frontend — Apache Metrics | Request rate, busy/idle workers, CPU load, replicas available |
 | Kubernetes — Pod Resources | CPU and memory per pod across both namespaces |
 
-Dashboards are loaded automatically via Grafana's sidecar watching for ConfigMaps with label `grafana_dashboard=1`. The overview dashboard is set as the Grafana home page via `grafana.ini`.
+Dashboards load automatically via Grafana's sidecar watching ConfigMaps with label `grafana_dashboard=1`. The overview dashboard is set as the Grafana home page via `grafana.ini`.
 
 ---
 
@@ -196,13 +220,46 @@ Apache (PHP pod)
 - `kubectl`
 - `helm` (Approach A only)
 - Node.js 20+ and `npm` (Approach B only)
-- Pulumi CLI (Approach B only)
+- Pulumi CLI (Approach B only): `curl -fsSL https://get.pulumi.com | sh`
 
 ---
 
 ## Approach A — Manual Deployment (kubectl + helm)
 
-> For learning and understanding each component individually.
+> For learning and understanding each component individually. Complete these Common Setup steps first, then follow A1–A8.
+
+### Common setup (required for both approaches)
+
+```bash
+# start cluster
+minikube start --nodes=4 --driver=docker --cpus=4 --memory=6144
+kubectl get nodes   # wait until all 4 are Ready
+
+# enable addons BEFORE tainting
+minikube addons enable ingress
+minikube addons enable metrics-server
+kubectl wait --for=condition=ready pod \
+  -l app.kubernetes.io/name=ingress-nginx \
+  -n ingress-nginx --timeout=120s
+
+# label and taint nodes
+kubectl label node minikube-m02 tier=backend && kubectl taint node minikube-m02 tier=backend:NoSchedule
+kubectl label node minikube-m03 tier=frontend && kubectl taint node minikube-m03 tier=frontend:NoSchedule
+kubectl label node minikube-m04 tier=ingress  && kubectl taint node minikube-m04 tier=ingress:NoSchedule
+
+# move ingress to m04
+kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type=json \
+  -p='[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{"kubernetes.io/os":"linux","tier":"ingress"}}]'
+kubectl patch deployment ingress-nginx-controller -n ingress-nginx \
+  --patch '{"spec":{"template":{"spec":{"tolerations":[{"key":"tier","operator":"Equal","value":"ingress","effect":"NoSchedule"}]}}}}'
+kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx
+
+# pre-pull images
+minikube ssh -n minikube-m02 -- docker pull registry.k8s.io/redis@sha256:cb111d1bd870a6a471385a4a69ad17469d326e9dd91e0e455350cacf36e1b3ee
+minikube ssh -n minikube-m02 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-redis-follower:v2
+minikube ssh -n minikube-m03 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
+minikube ssh -n minikube-m03 -- docker pull bitnami/apache-exporter:latest
+```
 
 ### A1 — Create namespaces
 
@@ -224,9 +281,28 @@ kubectl apply -f FrontEnd/Front-Deploy.yaml
 kubectl apply -f FrontEnd/Frontend-service.yaml
 ```
 
+Verify:
+```bash
+kubectl get pods -n guestbook-backend   # 3 Running on minikube-m02
+kubectl get pods -n guestbook-frontend  # 2/2 Running on minikube-m03
+```
+
+Verify Redis replication:
+```bash
+kubectl logs deployment/redis-leader -n guestbook-backend | grep -i slave
+# Expected: Synchronization with slave xxx succeeded (x2)
+```
+
+Verify Apache metrics sidecar:
+```bash
+POD=$(kubectl get pods -n guestbook-frontend -o jsonpath='{.items[0].metadata.name}')
+kubectl exec $POD -n guestbook-frontend -c php-redis -- curl -s http://localhost:9117/metrics | head -10
+```
+
 ### A3 — Create ingress and DNS
 
 ```bash
+cd k8s/
 kubectl apply -f ingress.yaml
 echo "192.168.49.5 guestbook.local grafana.local" | sudo tee -a /etc/hosts
 curl -I http://guestbook.local   # Expected: HTTP 200 OK
@@ -239,21 +315,27 @@ helm repo add prometheus-community https://prometheus-community.github.io/helm-c
 helm repo update
 helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  --values Monitoring/kube-prometheus-stack-values.yaml \
+  --values k8s/Monitoring/kube-prometheus-stack-values.yaml \
   --wait --timeout 15m
+```
+
+Verify:
+```bash
+kubectl get pods -n monitoring
+# Expected: grafana 3/3, prometheus 2/2, alertmanager 2/2, node-exporter x4
 ```
 
 ### A5 — Apply ServiceMonitors
 
 ```bash
-kubectl apply -f Monitoring/servicemonitor-frontend.yaml
-kubectl apply -f Monitoring/servicemonitor-redis.yaml
+kubectl apply -f k8s/Monitoring/servicemonitor-frontend.yaml
+kubectl apply -f k8s/Monitoring/servicemonitor-redis.yaml
 ```
 
 ### A6 — Load Grafana dashboards
 
 ```bash
-cd Monitoring/DashBoard-json/
+cd k8s/Monitoring/DashBoard-json/
 for dashboard in *.json; do
   name=$(basename $dashboard .json)
   kubectl create configmap $name \
@@ -267,21 +349,28 @@ done
 ### A7 — Apply security hardening
 
 ```bash
-kubectl apply -f Security/secrets.yaml
-kubectl apply -f Security/resource-quotas.yaml
-kubectl apply -f Security/pod-disruption-budgets.yaml
-kubectl apply -f Security/network-policies.yaml
+kubectl apply -f k8s/Security/secrets.yaml
+kubectl apply -f k8s/Security/resource-quotas.yaml
+kubectl apply -f k8s/Security/pod-disruption-budgets.yaml
+kubectl apply -f k8s/Security/network-policies.yaml
 ```
 
-### A8 — Verify
+Verify services still work after network policies:
+```bash
+curl -I http://guestbook.local   # HTTP 200 OK
+curl -I http://grafana.local     # HTTP 302 Found
+```
+
+### A8 — Verify full stack
 
 ```bash
 kubectl get pods -n guestbook-backend -o wide   # minikube-m02
 kubectl get pods -n guestbook-frontend -o wide  # minikube-m03
 kubectl get pods -n monitoring -o wide          # minikube-m03
 kubectl get pods -n ingress-nginx -o wide       # minikube-m04
-curl -I http://guestbook.local                  # HTTP 200 OK
-curl -I http://grafana.local                    # HTTP 302 Found
+kubectl get netpol --all-namespaces
+kubectl get quota --all-namespaces
+kubectl get pdb --all-namespaces
 ```
 
 ---
@@ -289,14 +378,16 @@ curl -I http://grafana.local                    # HTTP 302 Found
 ## Approach B — Pulumi Deployment (TypeScript IaC)
 
 > The entire stack in a single `index.ts` file. One command to deploy everything.
+> Complete the Common Setup steps from Approach A first (cluster, addons, taints, ingress patch, image pre-pull), then follow B1–B5.
 
 ### B1 — Install Pulumi
 
 ```bash
 curl -fsSL https://get.pulumi.com | sh && source ~/.bashrc
+pulumi version
 ```
 
-### B2 — Deploy
+### B2 — Set up and deploy
 
 ```bash
 cd pulumi-guestbook/
@@ -324,20 +415,27 @@ verifyMetricsCommand : "POD=$(kubectl get pods ...) && kubectl exec ..."
 echo "192.168.49.5 guestbook.local grafana.local" | sudo tee -a /etc/hosts
 ```
 
-> Use `192.168.49.5` (minikube-m04 IP) — not `minikube ip` which returns the control plane.
+> Use `192.168.49.5` (minikube-m04 IP) — not `minikube ip` which returns the control plane IP.
 
 ### B4 — Verify
 
 ```bash
 curl -I http://guestbook.local   # HTTP 200 OK
-curl -I http://grafana.local     # HTTP 302 Found → login
+curl -I http://grafana.local     # HTTP 302 Found → /login
+
+kubectl get pods -n guestbook-backend -o wide   # minikube-m02
+kubectl get pods -n guestbook-frontend -o wide  # minikube-m03
+kubectl get pods -n monitoring -o wide          # minikube-m03
+kubectl get pods -n ingress-nginx -o wide       # minikube-m04
 ```
+
+Open Grafana at `http://grafana.local` — the **Guestbook Full Stack Overview** dashboard loads as the home page automatically.
 
 ### B5 — Destroy
 
 ```bash
-pulumi destroy --yes
-minikube delete
+pulumi destroy --yes   # removes all Pulumi-managed K8s resources
+minikube delete        # deletes the cluster
 ```
 
 ---
@@ -345,20 +443,21 @@ minikube delete
 ## File Structure
 
 ```
-guestbook-monitoring/
+kubernetes-guestbook-monitoring/
 ├── architecture.svg
 ├── README.md
 ├── pulumi-guestbook/
 │   ├── index.ts                 ← entire stack (38 resources)
 │   ├── Pulumi.yaml
+│   ├── Pulumi.dev.yaml
 │   └── package.json
 └── k8s/
     ├── BackEnd/
     │   ├── Redis-Leader-Deployment.yaml
     │   └── Redis-Follower-Deployment.yaml
     ├── FrontEnd/
-    │   ├── Front-Deploy.yaml    ← php-redis + apache-exporter sidecar
-    │   └── Frontend-service.yaml
+    │   ├── Front-Deploy.yaml        ← php-redis + apache-exporter sidecar
+    │   └── Frontend-service.yaml    ← ClusterIP ports 80 + 9117
     ├── Monitoring/
     │   ├── kube-prometheus-stack-values.yaml
     │   ├── servicemonitor-frontend.yaml
