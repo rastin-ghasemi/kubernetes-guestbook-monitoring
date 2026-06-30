@@ -51,6 +51,15 @@ minikube ssh -n minikube-m02 -- docker pull us-docker.pkg.dev/google-samples/con
 minikube ssh -n minikube-m03 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
 minikube ssh -n minikube-m03 -- docker pull bitnami/apache-exporter:latest
 
+# pre-pull monitoring stack images on minikube-m03 (quay.io can be slow — avoids ImagePullBackOff)
+minikube ssh -n minikube-m03 -- docker pull quay.io/prometheus/prometheus:v3.12.0-distroless
+minikube ssh -n minikube-m03 -- docker pull quay.io/prometheus-operator/prometheus-config-reloader:v0.92.0
+minikube ssh -n minikube-m03 -- docker pull quay.io/prometheus-operator/prometheus-operator:v0.92.0
+minikube ssh -n minikube-m03 -- docker pull grafana/grafana:13.1.0
+minikube ssh -n minikube-m03 -- docker pull quay.io/kiwigrid/k8s-sidecar:2.8.0
+minikube ssh -n minikube-m03 -- docker pull quay.io/prometheus/alertmanager:v0.28.1
+minikube ssh -n minikube-m03 -- docker pull registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.19.1
+
 # 7. deploy everything with Pulumi
 cd pulumi-guestbook
 rm -rf node_modules package-lock.json
@@ -63,6 +72,18 @@ pulumi up --yes
 
 # 8. add local DNS (use minikube-m04 IP — NOT minikube ip)
 echo "192.168.49.5 guestbook.local grafana.local" | sudo tee -a /etc/hosts
+
+# verify correct node placement (Pulumi sets nodeSelector + tolerations on every workload)
+kubectl get pods -A -o wide
+```
+
+Expected node placement:
+```
+guestbook-backend    redis-leader / redis-follower    → minikube-m02
+guestbook-frontend   frontend                          → minikube-m03
+monitoring           prometheus / grafana / alertmanager / kube-state-metrics / prometheus-operator → minikube-m03
+monitoring           node-exporter (DaemonSet)         → all 4 nodes
+ingress-nginx        ingress-nginx-controller          → minikube-m04
 ```
 
 **That's it.** Open `http://guestbook.local` for the app and `http://grafana.local` for dashboards.
