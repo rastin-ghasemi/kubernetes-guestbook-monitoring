@@ -32,7 +32,10 @@ kubectl label node minikube-m02 tier=backend && kubectl taint node minikube-m02 
 kubectl label node minikube-m03 tier=frontend && kubectl taint node minikube-m03 tier=frontend:NoSchedule
 kubectl label node minikube-m04 tier=ingress  && kubectl taint node minikube-m04 tier=ingress:NoSchedule
 
-# 5. move ingress controller to dedicated ingress node
+# 5. pre-pull ingress image on minikube-m04 BEFORE patching
+minikube ssh -n minikube-m04 -- docker pull registry.k8s.io/ingress-nginx/controller:v1.14.3
+
+# move ingress controller to dedicated ingress node
 kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type=json \
   -p='[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{"kubernetes.io/os":"linux","tier":"ingress"}}]'
 kubectl patch deployment ingress-nginx-controller -n ingress-nginx \
@@ -42,7 +45,7 @@ kubectl patch deployment ingress-nginx-controller -n ingress-nginx \
 kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx
 kubectl get pods -n ingress-nginx -o wide   # Expected: Running on minikube-m04
 
-# 6. pre-pull images on the correct nodes
+# 6. pre-pull images on the correct nodes (after taints so images land in the right place)
 minikube ssh -n minikube-m02 -- docker pull registry.k8s.io/redis@sha256:cb111d1bd870a6a471385a4a69ad17469d326e9dd91e0e455350cacf36e1b3ee
 minikube ssh -n minikube-m02 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-redis-follower:v2
 minikube ssh -n minikube-m03 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
@@ -259,14 +262,18 @@ kubectl label node minikube-m02 tier=backend && kubectl taint node minikube-m02 
 kubectl label node minikube-m03 tier=frontend && kubectl taint node minikube-m03 tier=frontend:NoSchedule
 kubectl label node minikube-m04 tier=ingress  && kubectl taint node minikube-m04 tier=ingress:NoSchedule
 
+# pre-pull ingress image on minikube-m04 BEFORE patching
+minikube ssh -n minikube-m04 -- docker pull registry.k8s.io/ingress-nginx/controller:v1.14.3
+
 # move ingress to m04
 kubectl patch deployment ingress-nginx-controller -n ingress-nginx --type=json \
   -p='[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{"kubernetes.io/os":"linux","tier":"ingress"}}]'
 kubectl patch deployment ingress-nginx-controller -n ingress-nginx \
   --patch '{"spec":{"template":{"spec":{"tolerations":[{"key":"tier","operator":"Equal","value":"ingress","effect":"NoSchedule"}]}}}}'
 kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx
+kubectl get pods -n ingress-nginx -o wide   # Expected: Running on minikube-m04
 
-# pre-pull images
+# pre-pull images on the correct nodes (after taints so images land in the right place)
 minikube ssh -n minikube-m02 -- docker pull registry.k8s.io/redis@sha256:cb111d1bd870a6a471385a4a69ad17469d326e9dd91e0e455350cacf36e1b3ee
 minikube ssh -n minikube-m02 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-redis-follower:v2
 minikube ssh -n minikube-m03 -- docker pull us-docker.pkg.dev/google-samples/containers/gke/gb-frontend:v5
