@@ -49,6 +49,8 @@ const redisLeaderDeployment = new k8s.apps.v1.Deployment("redis-leader", {
                     livenessProbe: { tcpSocket: { port: 6379 }, initialDelaySeconds: 15, periodSeconds: 20 },
                     readinessProbe: { tcpSocket: { port: 6379 }, initialDelaySeconds: 5, periodSeconds: 10 },
                 }],
+                nodeSelector: { tier: "backend" },
+                tolerations: [{ key: "tier", operator: "Equal", value: "backend", effect: "NoSchedule" }],
             },
         },
     },
@@ -87,6 +89,8 @@ const redisFollowerDeployment = new k8s.apps.v1.Deployment("redis-follower", {
                     livenessProbe: { tcpSocket: { port: 6379 }, initialDelaySeconds: 15, periodSeconds: 20 },
                     readinessProbe: { tcpSocket: { port: 6379 }, initialDelaySeconds: 5, periodSeconds: 10 },
                 }],
+                nodeSelector: { tier: "backend" },
+                tolerations: [{ key: "tier", operator: "Equal", value: "backend", effect: "NoSchedule" }],
             },
         },
     },
@@ -168,6 +172,8 @@ const frontendDeployment = new k8s.apps.v1.Deployment("frontend", {
                         readinessProbe: { httpGet: { path: "/metrics", port: 9117 }, initialDelaySeconds: 10, periodSeconds: 10 },
                     },
                 ],
+                nodeSelector: { tier: "frontend" },
+                tolerations: [{ key: "tier", operator: "Equal", value: "frontend", effect: "NoSchedule" }],
             },
         },
     },
@@ -206,6 +212,8 @@ const prometheusStack = new k8s.helm.v3.Release("kube-prometheus-stack", {
                     requests: { cpu: "200m", memory: "400Mi" },
                     limits: { cpu: "500m", memory: "800Mi" },
                 },
+                nodeSelector: { tier: "frontend" },
+                tolerations: [{ key: "tier", operator: "Equal", value: "frontend", effect: "NoSchedule" }],
             },
         },
         grafana: {
@@ -219,6 +227,8 @@ const prometheusStack = new k8s.helm.v3.Release("kube-prometheus-stack", {
                 requests: { cpu: "100m", memory: "100Mi" },
                 limits: { cpu: "200m", memory: "200Mi" },
             },
+            nodeSelector: { tier: "frontend" },
+            tolerations: [{ key: "tier", operator: "Equal", value: "frontend", effect: "NoSchedule" }],
             sidecar: {
                 dashboards: {
                     enabled: true,
@@ -240,14 +250,31 @@ const prometheusStack = new k8s.helm.v3.Release("kube-prometheus-stack", {
                     requests: { cpu: "50m", memory: "50Mi" },
                     limits: { cpu: "100m", memory: "100Mi" },
                 },
+                nodeSelector: { tier: "frontend" },
+                tolerations: [{ key: "tier", operator: "Equal", value: "frontend", effect: "NoSchedule" }],
             },
         },
-        nodeExporter: { enabled: true },
+        // node-exporter is a DaemonSet that must run on every node (including tainted ones)
+        // so it tolerates all our custom taints to collect host-level metrics cluster-wide
+        nodeExporter: {
+            enabled: true,
+            tolerations: [
+                { key: "tier", operator: "Exists", effect: "NoSchedule" },
+            ],
+        },
+        kubeStateMetrics: { enabled: true },
+        // kube-state-metrics pod itself also needs to land on the frontend/monitoring node
+        "kube-state-metrics": {
+            nodeSelector: { tier: "frontend" },
+            tolerations: [{ key: "tier", operator: "Equal", value: "frontend", effect: "NoSchedule" }],
+        },
         kubeEtcd: { enabled: false },
         kubeControllerManager: { enabled: false },
         kubeScheduler: { enabled: false },
-        // admission webhook jobs need tolerations to schedule on tainted nodes
         prometheusOperator: {
+            nodeSelector: { tier: "frontend" },
+            tolerations: [{ key: "tier", operator: "Equal", value: "frontend", effect: "NoSchedule" }],
+            // admission webhook jobs also need tolerations to schedule on tainted nodes
             admissionWebhooks: {
                 patch: {
                     tolerations: [
